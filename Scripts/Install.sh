@@ -1,21 +1,42 @@
 #! /bin/sh
 
-# Download Unity3D installer into the container
-#  The below link will need to change depending on the version, this one is for 2019.2.0
-#  Refer to https://unity3d.com/get-unity/download/archive and find the link pointed to by Mac "Unity Editor"
-echo 'Downloading Unity 2019.2.0 pkg:'
-curl --retry 5 -o Unity.pkg http://netstorage.unity3d.com/unity/20c1667945cf/MacEditorInstaller/Unity-2019.2.0f1.pkg
-if [ $? -ne 0 ]; then { echo "Download failed"; exit $?; } fi
+# See https://unity3d.com/get-unity/download/archive
+# to get download URLs
+UNITY_DOWNLOAD_CACHE="$(pwd)/unity_download_cache"
+UNITY_OSX_PACKAGE_URL="https://download.unity3d.com/download_unity/20c1667945cf/MacEditorInstaller/Unity-2019.2.0f1.pkg"
+UNITY_WINDOWS_TARGET_PACKAGE_URL="https://beta.unity3d.com/download/20c1667945cf/MacEditorTargetInstaller/UnitySetup-Windows-Support-for-Editor-2019.2.0f1.pkg"
 
-# In Unity 5 they split up build platform support into modules which are installed separately
-# By default, only Mac OSX support is included in the original editor package; Windows, Linux, iOS, Android, and others are separate
-# In this example we download Windows support. Refer to http://unity.grimdork.net/ to see what form the URLs should take
-echo 'Downloading Unity 2019.2.0 Windows Build Support pkg:'
-curl --retry 5 -o Unity_win.pkg http://netstorage.unity3d.com/unity/20c1667945cf/MacEditorTargetInstaller/UnitySetup-Windows-Support-for-Editor-2019.2.0f1.pkg
-if [ $? -ne 0 ]; then { echo "Download failed"; exit $?; } fi
 
-# Run installer(s)
-echo 'Installing Unity.pkg'
-sudo installer -dumplog -package Unity.pkg -target /
-echo 'Installing Unity_win.pkg'
-sudo installer -dumplog -package Unity_win.pkg -target /
+# Downloads a file if it does not exist
+download() {
+
+	URL=$1
+	FILE=`basename "$URL"`
+	
+	# Downloads a package if it does not already exist in cache
+	if [ ! -e $UNITY_DOWNLOAD_CACHE/`basename "$URL"` ] ; then
+		echo "$FILE does not exist. Downloading from $URL: "
+		mkdir -p "$UNITY_DOWNLOAD_CACHE"
+		curl -o $UNITY_DOWNLOAD_CACHE/`basename "$URL"` "$URL"
+	else
+		echo "$FILE Exists. Skipping download."
+	fi
+}
+
+# Downloads and installs a package from an internet URL
+install() {
+	PACKAGE_URL=$1
+	download $1
+
+	echo "Installing `basename "$PACKAGE_URL"`"
+	sudo installer -dumplog -package $UNITY_DOWNLOAD_CACHE/`basename "$PACKAGE_URL"` -target /
+}
+
+
+
+echo "Contents of Unity Download Cache:"
+ls $UNITY_DOWNLOAD_CACHE
+
+echo "Installing Unity..."
+install $UNITY_OSX_PACKAGE_URL
+install $UNITY_WINDOWS_TARGET_PACKAGE_URL
